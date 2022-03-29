@@ -1,8 +1,6 @@
-from re import A
 import numpy as np
-from constants import ConstantValues
 
-np.random.seed(0)
+np.random.seed(1)
 
 class MatrixGenerate():
     def __init__(self, matrixSize, blockSize, numLimit):
@@ -75,32 +73,35 @@ class MatrixGenerate():
         return A, b, L, D, U
         
 class MatrixDistribute():
-    def __init__(self, comm, clusterSize, nodeRank):
+    def __init__(self, comm, clusterSize, nodeRank, matrixSize, blockSize, numLimit, divPerNode):
         self.comm           = comm
         self.clusterSize    = clusterSize
         self.nodeRank       = nodeRank
+        self.matrixSize     = matrixSize
+        self.blockSize      = blockSize
+        self.numLimit       = numLimit
+        self.divPerNode     = divPerNode
 
         self.A, self.b, self.L, self.D, self.U = None, None, None, None, None
 
     def distributeData(self, comm, clusterSize, nodeRank):
         if nodeRank == 0:
-            constant    = ConstantValues(clusterSize)
-            matrix      = MatrixGenerate(int(constant.matrixSize), \
-                                            int(constant.blockSize), \
-                                            int(constant.numLimit))
+            matrix      = MatrixGenerate(int(self.matrixSize), \
+                                            int(self.blockSize), \
+                                            int(self.numLimit))
 
             for i in range(1, clusterSize):
-                comm.send(matrix.A[i * constant.divPerNode: (i + 1) * constant.divPerNode], dest = i, tag = 0)
-                comm.send(matrix.b[i * constant.divPerNode: (i + 1) * constant.divPerNode], dest = i, tag = 1)
-                comm.send(matrix.L[i * constant.divPerNode: (i + 1) * constant.divPerNode], dest = i, tag = 2)
-                comm.send(matrix.D[i * constant.divPerNode: (i + 1) * constant.divPerNode], dest = i, tag = 3)
-                comm.send(matrix.U[i * constant.divPerNode: (i + 1) * constant.divPerNode], dest = i, tag = 4)
+                comm.send(matrix.A[i * self.divPerNode: (i + 1) * self.divPerNode], dest = i, tag = 0)
+                comm.send(matrix.b[i * self.divPerNode: (i + 1) * self.divPerNode], dest = i, tag = 1)
+                comm.send(matrix.L[i * self.divPerNode: (i + 1) * self.divPerNode], dest = i, tag = 2)
+                comm.send(matrix.D[i * self.divPerNode: (i + 1) * self.divPerNode], dest = i, tag = 3)
+                comm.send(matrix.U[i * self.divPerNode: (i + 1) * self.divPerNode], dest = i, tag = 4)
             
-            A = matrix.A[0: constant.divPerNode]
-            b = matrix.b[0: constant.divPerNode]
-            L = matrix.L[0: constant.divPerNode]
-            D = matrix.D[0: constant.divPerNode]
-            U = matrix.U[0: constant.divPerNode]
+            A = matrix.A[0: self.divPerNode]
+            b = matrix.b[0: self.divPerNode]
+            L = matrix.L[0: self.divPerNode]
+            D = matrix.D[0: self.divPerNode]
+            U = matrix.U[0: self.divPerNode]
 
         else:
             A = comm.recv(source = 0, tag = 0)
@@ -112,8 +113,9 @@ class MatrixDistribute():
         return A, b, L, D, U
 
 class LocalMatrixInitialize():
-    def __init__(self, clusterSize, A, b, L, D, U):
-        self.constant = ConstantValues(clusterSize)
+    def __init__(self, blockSize, divPerNode, A, b, L, D, U):
+        self.blockSize  = blockSize
+        self.divPerNode = divPerNode
 
         self.A = A
         self.b = b
@@ -129,7 +131,7 @@ class LocalMatrixInitialize():
         self.B = None
     
     def generateIdentity(self):
-        return np.identity(self.constant.blockSize, \
+        return np.identity(self.blockSize, \
             dtype = int)
     
     def computeInverse(self, U):
@@ -148,7 +150,7 @@ class LocalMatrixInitialize():
 
     def constructB(self, D_til, L_til, b_til):
         B = []
-        for idx in range(self.constant.divPerNode):
+        for idx in range(self.divPerNode):
             mat = np.zeros((3, 3))
             mat[0][0] = D_til[idx]
             mat[0][1] = L_til[idx]

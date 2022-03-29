@@ -56,6 +56,5 @@ class UpdatePrefix():
             ans = self.X
             for commNode in range(1, self.clusterSize):
                 ans.extend(self.comm.recv(source = commNode, tag = 7))
-            # print(ans[:-1])
 
 

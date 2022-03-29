@@ -18,7 +18,6 @@ class ParallelCompute():
 
         return commNode
 
-
     def computePrefix(self):
         d = int(np.log2(self.clusterSize))
 
