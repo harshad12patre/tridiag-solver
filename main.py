@@ -1,5 +1,6 @@
 import time
 import sys
+import numpy as np
 from mpi4py import MPI
 from init import MatrixDistribute, LocalMatrixInitialize
 from serialcompute import SerialCompute
@@ -52,7 +53,27 @@ comm.Barrier()
 # End Time
 endTime = time.time()
 
+# Execution Time
+execTime = endTime - startTime
+
 # Program Run Time
 if nodeRank == 0:
-    print(endTime - startTime)
+    times = [execTime]
+    for commNode in range(1, clusterSize):
+        times.append([comm.recv(source = commNode, tag = 999), commNode])
+
+    print("cluster size:", clusterSize, "matrix size:", matrixSize)
+    print("Node 0 Time:", times[0])
+
+    timesArray = [x[0] for x in times]
+    times.sort(key = lambda x: x[0])
+
+    print("Max Time:", times[-1][0], "at node:", times[-1][1])
+    print("Min Time:", times[0][0], "at node:", times[0][1])
+    print("Avg Time:", np.mean(timesArray))
+    print("*************************")
+
     sys.exit()
+
+else:
+    comm.send(execTime, dest = 0, tag = 999)
